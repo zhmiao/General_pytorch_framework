@@ -10,12 +10,12 @@ cd ../..
 
 ### Second, train the model
 ```
-python python main.py --config ./configs/beeants_plain_061521.yaml --gpu 0 --session 0
+python main.py --config ./configs/beeants_plain_061521.yaml --gpu 0 --session 0
 ```
 
 ### Third, evaluat the model
 ```
-python python main.py --config ./configs/beeants_plain_061521.yaml --gpu 0 --session 0 --evaluate val
+python main.py --config ./configs/beeants_plain_061521.yaml --gpu 0 --session 0 --evaluate val
 ```
 
 
