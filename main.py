@@ -1,91 +1,72 @@
 import os
 import yaml
-import numpy as np
+import logging
+from argparse import ArgumentParser
 
-import torch
+from src.algorithms.utils import get_algorithm
 
-import fire
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.loggers import WandbLogger
+###################
+# Parse arguments #
+###################
+parser = ArgumentParser()
+parser.add_argument('--config', default='./configs/beeants_plain_061521.yaml',
+                    help='Configuration path.')
+parser.add_argument('--session', default=0,
+                    help='Session id.')
+parser.add_argument('--gpu', default=0,
+                    help='GPU id.')
+parser.add_argument('--np_threads', default=4,
+                    help='Num of threads of numpy.')
+parser.add_argument('--evaluate', default=None,
+                    help='If evaluate the model.')
+args = parser.parse_args()
 
+#############################
+# Set environment variables #
+#############################
+# Set GPU
+os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+# Set numpy threads
+os.environ["OMP_NUM_THREADS"] = str(args.np_threads)
+os.environ["OPENBLAS_NUM_THREADS"] = str(args.np_threads)
+os.environ["MKL_NUM_THREADS"] = str(args.np_threads)
+os.environ["VECLIB_MAXIMUM_THREADS"] = str(args.np_threads)
+os.environ["NUMEXPR_NUM_THREADS"] = str(args.np_threads)
 
-def main(config='./configs/beeants_plain_061521.yaml',
-         gpus=[0], 
-         session=0,
-         np_threads=8,
-         evaluate=None,
-         seed=0):
+###############################
+# Load configurations to args #
+###############################
+with open(args.config) as f:
+    config = yaml.load(f, Loader=yaml.FullLoader)
+for k, v in config.items():
+    setattr(args, k, v)
 
-    #############################
-    # Set environment variables #
-    #############################
-    # Set numpy threads
-    os.environ["OMP_NUM_THREADS"] = str(np_threads)
-    os.environ["OPENBLAS_NUM_THREADS"] = str(np_threads)
-    os.environ["MKL_NUM_THREADS"] = str(np_threads)
-    os.environ["VECLIB_MAXIMUM_THREADS"] = str(np_threads)
-    os.environ["NUMEXPR_NUM_THREADS"] = str(np_threads)
-    
-    ###############################
-    # Load configurations to args #
-    ###############################
-    args = {}
-    with open(config) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    for k, v in config.items():
-        setattr(args, k, v)
+#################
+# Create logger #
+#################
+log_root = './log'
+os.makedirs(log_root, exist_ok=True)
+log_file = os.path.join(log_root, '{}_{}_{}.log'.format(args.algorithm, args.conf_id, args.session))
+logging.basicConfig(format='%(levelname)s: %(message)s')
+logger = logging.getLogger('MAIN')
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(log_file, mode='a' if args.evaluate else 'w')
+logger.addHandler(handler)
+setattr(args, 'logger', logger)
 
-    pl.seed_everything(seed)
-
-    alg = get_algorithm(args.algorithm, args)
-
-    model = AudioNTT2020(n_mels=64, d=2048)
-
-    learner = BYOLALearner(
-        model=model, 
-        lr=lr, 
-        batch_size=batch_size, 
-        noise=noise, 
-        pre=pre, 
-        shape=(64, 200),
-        hidden_layer=-1,
-        projection_size=512,
-        projection_hidden_size=4096,
-        moving_average_decay=0.99,
-    )
-
-    logger = WandbLogger(
-        project="byol_{}".format(ann_type),
-        save_dir="logs/",
-        name="seive_{}_{}_n{}_{}".format(ann_type, pre, noise, session),
-    )
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor="valid_acc_knn", mode="max", dirpath="models/{}".format(ann_type), save_top_k=1,
-        filename='seive-encoder-{}-{}-n{}'.format(pre, session, noise) + '-{epoch:02d}-{valid_acc_knn:.2f}'
-    )
-
-    lr_monitor = LearningRateMonitor(logging_interval='step')
-
-    trainer = pl.Trainer(
-        max_epochs=epochs,
-        check_val_every_n_epoch=1, 
-        log_every_n_steps = 50, 
-        gpus=[g for g in gpus],
-        logger=None if evaluate is not None else logger,
-        callbacks=[lr_monitor, checkpoint_callback],
-        accelerator='dp',
-        # profiler="simple"
-    )
-
-    if evaluate is not None:
-        learner = learner.load_from_checkpoint(checkpoint_path=evaluate)
-        trainer.test(learner)
-        # trainer.validate(learner)
-    else:
-        trainer.fit(learner)
-
-if __name__ == '__main__':
-    fire.Fire(main)
+##############
+# Algorithms #
+##############
+alg = get_algorithm(args.algorithm, args)
+if args.evaluate=='val':
+    alg.set_eval()
+    alg.logger.info('\nValidating...')
+    _ = alg.evaluate(loader=alg.valloader, eval_output=True)
+elif args.evaluate=='test':
+    alg.set_eval()
+    alg.logger.info('\nTesting...')
+    _ = alg.evaluate(loader=alg.testloader, eval_output=True)
+else:
+    alg.set_train()
+    alg.logger.info('\nTraining...')
+    alg.train()
