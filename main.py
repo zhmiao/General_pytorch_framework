@@ -26,7 +26,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
     ############
     # Set gpus #
     ############
-    gpus = gpus if torch.cuda.is_available() else None
+    gpus = [g for g in gpus] if torch.cuda.is_available() else None
 
     #############################
     # Set environment variables #
@@ -95,7 +95,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
         max_epochs=conf.num_epochs,
         check_val_every_n_epoch=1, 
         log_every_n_steps = conf.log_interval, 
-        gpus=[g for g in gpus],
+        gpus=gpus,
         logger=None if evaluate is not None else logger,
         callbacks=[lr_monitor, checkpoint_callback],
         strategy='dp',
