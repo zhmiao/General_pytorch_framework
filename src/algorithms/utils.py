@@ -1,5 +1,6 @@
 import numpy as np
 
+
 algorithms = {}
 
 
@@ -15,49 +16,14 @@ def register_algorithm(name):
     return decorator
 
 
-def get_algorithm(name, args):
+def get_algorithm(name, **kwargs):
 
     """
     Algorithm getter
     """
 
-    alg = algorithms[name](args)
+    alg = algorithms[name](**kwargs)
     return alg
-
-
-class Algorithm:
-
-    """
-    Base Algorithm class for reference.
-    """
-
-    name = None
-
-    def __init__(self, args):
-        self.args = args
-        self.logger = self.args.logger
-        self.weights_path = './weights/{}/{}_{}.pth'.format(self.args.algorithm, self.args.conf_id, self.args.session)
-
-    def set_train(self):
-        pass
-
-    def set_eval(self):
-        pass
-
-    def train_epoch(self, epoch):
-        pass
-
-    def train(self):
-        pass
-
-    def evaluate_epoch(self, loader):
-        pass
-
-    def evaluate(self, loader):
-        pass
-
-    def save_model(self):
-        pass
 
 
 def acc(preds, labels, num_classes=6):

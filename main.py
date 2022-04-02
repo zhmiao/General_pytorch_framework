@@ -1,22 +1,32 @@
 import os
 import yaml
 import numpy as np
+import fire
+from munch import Munch
 
 import torch
-
-import fire
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.loggers import WandbLogger, CSVLogger, TensorBoardLogger
+
+from src.data.utils import get_dataset
+from src.algorithms.utils import get_algorithm
 
 
 def main(config='./configs/beeants_plain_061521.yaml',
+         project='BeeAnts',
          gpus=[0], 
+         logger_type='csv',
          session=0,
          np_threads=8,
          evaluate=None,
          seed=0):
+
+    ############
+    # Set gpus #
+    ############
+    gpus = gpus if torch.cuda.is_available() else None
 
     #############################
     # Set environment variables #
@@ -28,64 +38,70 @@ def main(config='./configs/beeants_plain_061521.yaml',
     os.environ["VECLIB_MAXIMUM_THREADS"] = str(np_threads)
     os.environ["NUMEXPR_NUM_THREADS"] = str(np_threads)
     
-    ###############################
-    # Load configurations to args #
-    ###############################
-    args = {}
+    #######################
+    # Load configurations #
+    #######################
     with open(config) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
-    for k, v in config.items():
-        setattr(args, k, v)
+        conf = Munch(yaml.load(f, Loader=yaml.FullLoader))
 
     pl.seed_everything(seed)
 
-    alg = get_algorithm(args.algorithm, args)
+    ###########################
+    # Load data and algorithm #
+    ###########################
+    dataset = get_dataset(conf.dataset_name, conf=conf)
+    learner = get_algorithm(conf.algorithm, conf=conf, train_class_counts=dataset.train_class_counts)
 
-    model = AudioNTT2020(n_mels=64, d=2048)
+    ###############
+    # Load logger #
+    ###############
+    if logger_type == 'csv':
+        logger = CSVLogger(
+            save_dir='./log/{}'.format(conf.algorithm),
+            prefix=project,
+            name='{}_{}'.format(conf.algorithm, conf.conf_id),
+            version=session
+        )
+    elif logger_type == 'wandb':
+        logger = WandbLogger(
+            project=project,
+            save_dir='./log/{}'.format(conf.algorithm),
+            prefix=project,
+            name='{}_{}'.format(conf.algorithm, conf.conf_id),
+            version=session
+        )
 
-    learner = BYOLALearner(
-        model=model, 
-        lr=lr, 
-        batch_size=batch_size, 
-        noise=noise, 
-        pre=pre, 
-        shape=(64, 200),
-        hidden_layer=-1,
-        projection_size=512,
-        projection_hidden_size=4096,
-        moving_average_decay=0.99,
-    )
-
-    logger = WandbLogger(
-        project="byol_{}".format(ann_type),
-        save_dir="logs/",
-        name="seive_{}_{}_n{}_{}".format(ann_type, pre, noise, session),
-    )
-
+    ##################
+    # Load callbacks #
+    ##################
     checkpoint_callback = ModelCheckpoint(
-        monitor="valid_acc_knn", mode="max", dirpath="models/{}".format(ann_type), save_top_k=1,
-        filename='seive-encoder-{}-{}-n{}'.format(pre, session, noise) + '-{epoch:02d}-{valid_acc_knn:.2f}'
+        monitor='valid_mac_acc', mode='max', dirpath='./weights/{}'.format(conf.algorithm), save_top_k=1,
+        filename='{}-{}'.format(conf.conf_id, session) + '-{epoch:02d}-{valid_mac_acc:.2f}', verbose=True
     )
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
+    #################
+    # Setup trainer #
+    #################
     trainer = pl.Trainer(
-        max_epochs=epochs,
+        max_epochs=conf.num_epochs,
         check_val_every_n_epoch=1, 
-        log_every_n_steps = 50, 
+        log_every_n_steps = conf.log_interval, 
         gpus=[g for g in gpus],
         logger=None if evaluate is not None else logger,
         callbacks=[lr_monitor, checkpoint_callback],
-        accelerator='dp',
-        # profiler="simple"
+        strategy='dp',
+        num_sanity_val_steps=0,
     )
 
+    #######
+    # RUN #
+    #######
     if evaluate is not None:
-        learner = learner.load_from_checkpoint(checkpoint_path=evaluate)
-        trainer.test(learner)
-        # trainer.validate(learner)
+        trainer.validate(learner, datamodule=dataset, ckpt_path=evaluate)
     else:
-        trainer.fit(learner)
+        trainer.fit(learner, datamodule=dataset)
 
 if __name__ == '__main__':
     fire.Fire(main)

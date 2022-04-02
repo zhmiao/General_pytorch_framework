@@ -20,3 +20,4 @@ for i in val:
     val_list.write('{} {}\n'.format(i.split('/', 2)[-1], label))
 val_list.close()
 # %%
+

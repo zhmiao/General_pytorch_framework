@@ -1,12 +1,36 @@
 import os
 import json
 import numpy as np
+from PIL import Image
 
-from .utils import register_dataset_obj, BaseDataset
+from torchvision import transforms
+from torch.utils.data import Dataset, DataLoader
+import pytorch_lightning as pl
+
+from .utils import register_dataset_obj 
 
 
-@register_dataset_obj('BeeAnts')
-class BeeAnts(BaseDataset):
+mean = [0.485, 0.456, 0.406]
+std = [0.229, 0.224, 0.225]
+
+
+data_transforms = {
+    'train': transforms.Compose([
+        transforms.RandomResizedCrop((224, 224), scale=(0.7, 1.0), ratio=(0.8, 1.2)),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.5),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ]),
+    'val': transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+    ]),
+}
+
+class BeeAnts(Dataset):
 
     def __init__(self, rootdir, dset='train', transform=None):
         self.img_root = None
@@ -35,3 +59,62 @@ class BeeAnts(BaseDataset):
                 self.data.append(file_id)
                 self.labels.append(lab)
 
+    def class_counts_cal(self):
+        unique_labels, unique_counts = np.unique(self.labels, return_counts=True)
+        return unique_labels, unique_counts
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, index):
+        file_id = self.data[index]
+        label = self.labels[index]
+        file_dir = os.path.join(self.img_root, file_id)
+
+        with open(file_dir, 'rb') as f:
+            sample = Image.open(f).convert('RGB')
+
+        if self.transform is not None:
+            sample = self.transform(sample)
+
+        return sample, label, file_dir
+
+@register_dataset_obj('BeeAnts')
+class BeeAnts_DM(pl.LightningDataModule):
+    def __init__(self, conf):
+        self.conf = conf
+
+        print("Loading data...")
+        self.dset_tr = BeeAnts(rootdir=self.conf.dataset_root,
+                               dset='train',
+                               transform=data_transforms['train'])
+
+        self.dset_te = BeeAnts(rootdir=self.conf.dataset_root,
+                               dset='val',
+                               transform=data_transforms['val'] )
+
+        self.dset_te = BeeAnts(rootdir=self.conf.dataset_root,
+                               dset='val',
+                               transform=data_transforms['val'])
+
+        _, self.train_class_counts = self.dset_tr.class_counts_cal()
+
+        print("Done.")
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.dset_tr, batch_size=self.conf.batch_size, shuffle=True, 
+            pin_memory=True, num_workers=self.conf.num_workers, drop_last=False
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.dset_te, batch_size=self.conf.batch_size, shuffle=False, 
+            pin_memory=True, num_workers=self.conf.num_workers, drop_last=False
+        )
+
+    def test_dataloader(self):
+        return DataLoader(
+            self.dset_te, batch_size=self.conf.batch_size, shuffle=False, 
+            pin_memory=True, num_workers=self.conf.num_workers, drop_last=False
+        )
