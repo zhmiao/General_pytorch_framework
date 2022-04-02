@@ -83,6 +83,8 @@ class BeeAnts(Dataset):
 class BeeAnts_DM(pl.LightningDataModule):
     def __init__(self, conf):
         self.conf = conf
+        self.prepare_data_per_node = True 
+        self._log_hyperparams = False
 
         print("Loading data...")
         self.dset_tr = BeeAnts(rootdir=self.conf.dataset_root,
