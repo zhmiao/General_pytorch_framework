@@ -8,7 +8,7 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.loggers import WandbLogger, CSVLogger, TensorBoardLogger
+from pytorch_lightning.loggers import WandbLogger, CSVLogger, CometLogger
 
 from src.data.utils import get_dataset
 from src.algorithms.utils import get_algorithm
@@ -69,6 +69,13 @@ def main(config='./configs/beeants_plain_061521.yaml',
             prefix=project,
             name='{}_{}'.format(conf.algorithm, conf.conf_id),
             version=session
+        )
+    elif logger_type == 'comet':
+        logger = CometLogger(
+            api_key=os.environ.get("COMET_API_KEY"),
+            save_dir='./log/{}'.format(conf.algorithm),
+            project_name=project,  # Optional
+            experiment_name='{}_{}_{}'.format(conf.algorithm, conf.conf_id, session),
         )
 
     ##################
