@@ -26,7 +26,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
     ############
     # Set gpus #
     ############
-    gpus = [g for g in gpus] if torch.cuda.is_available() else None
+    gpus = gpus if torch.cuda.is_available() else None
 
     #############################
     # Set environment variables #
