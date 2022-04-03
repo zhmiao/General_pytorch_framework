@@ -100,6 +100,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
         callbacks=[lr_monitor, checkpoint_callback],
         strategy='dp',
         num_sanity_val_steps=0,
+        profiler='simple'
     )
 
     #######
