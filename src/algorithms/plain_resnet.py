@@ -237,16 +237,16 @@ class PlainResNet(Algorithm):
         return (total_preds, total_labels, total_logits, total_file_ids)
 
     def evaluate_metric(self, total_preds, total_labels):
-            class_acc, mac_acc, mic_acc, unique_eval_classes = acc(total_preds, total_labels, self.args.num_classes)
+        class_acc, mac_acc, mic_acc, unique_eval_classes = acc(total_preds, total_labels, self.args.num_classes)
 
-            eval_info = '{} Per-class evaluation results: \n'.format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
-            for i in range(len(class_acc)):
-                label = unique_eval_classes[i]
-                eval_info += 'Class {} (tr counts {:>5}):'.format(label, self.train_class_counts[label])
-                eval_info += 'Acc {:.3f} \n'.format(class_acc[i] * 100)
+        eval_info = '{} Per-class evaluation results: \n'.format(datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+        for i in range(len(class_acc)):
+            label = unique_eval_classes[i]
+            eval_info += 'Class {} (tr counts {:>5}):'.format(label, self.train_class_counts[label])
+            eval_info += 'Acc {:.3f} \n'.format(class_acc[i] * 100)
 
-            eval_info += 'Macro Acc: {:.3f}; Micro Acc: {:.3f}\n'.format(mac_acc * 100, mic_acc * 100)
-            return eval_info, mac_acc, mic_acc
+        eval_info += 'Macro Acc: {:.3f}; Micro Acc: {:.3f}\n'.format(mac_acc * 100, mic_acc * 100)
+        return eval_info, mac_acc, mic_acc
 
     def save_model(self):
         os.makedirs(self.weights_path.rsplit('/', 1)[0], exist_ok=True)
