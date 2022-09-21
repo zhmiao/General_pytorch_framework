@@ -62,14 +62,6 @@ def main(config='./configs/beeants_plain_061521.yaml',
             name='{}_{}'.format(conf.algorithm, conf.conf_id),
             version=session
         )
-    elif logger_type == 'wandb':
-        logger = WandbLogger(
-            project=project,
-            save_dir='./log/{}'.format(conf.algorithm),
-            prefix=project,
-            name='{}_{}'.format(conf.algorithm, conf.conf_id),
-            version=session
-        )
     elif logger_type == 'comet':
         logger = CometLogger(
             api_key=os.environ.get("COMET_API_KEY"),
