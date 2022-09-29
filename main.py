@@ -8,7 +8,7 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.loggers import WandbLogger, CSVLogger, CometLogger
+from pytorch_lightning.loggers import CSVLogger, CometLogger
 
 from src import algorithms
 from src import datasets
@@ -100,7 +100,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
     # RUN #
     #######
     if evaluate is not None:
-        trainer.validate(learner, datamodule=dataset, ckpt_path=evaluate)
+        trainer.test(learner, datamodule=dataset, ckpt_path=evaluate)
     else:
         trainer.fit(learner, datamodule=dataset)
 
