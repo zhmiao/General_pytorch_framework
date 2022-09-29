@@ -10,8 +10,8 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.loggers import WandbLogger, CSVLogger, CometLogger
 
-from src.data.utils import get_dataset
-from src.algorithms.utils import get_algorithm
+from src import algorithms
+from src import datasets
 
 
 def main(config='./configs/beeants_plain_061521.yaml',
@@ -49,8 +49,9 @@ def main(config='./configs/beeants_plain_061521.yaml',
     ###########################
     # Load data and algorithm #
     ###########################
-    dataset = get_dataset(conf.dataset_name, conf=conf)
-    learner = get_algorithm(conf.algorithm, conf=conf, train_class_counts=dataset.train_class_counts)
+    dataset = datasets.__dict__[conf.dataset_name](conf=conf)
+    learner = algorithms.__dict__[conf.algorithm](conf=conf,
+                            train_class_counts=dataset.train_class_counts)
 
     ###############
     # Load logger #
@@ -92,7 +93,7 @@ def main(config='./configs/beeants_plain_061521.yaml',
         callbacks=[lr_monitor, checkpoint_callback],
         strategy='dp',
         num_sanity_val_steps=0,
-        profiler='simple'
+        profiler=None
     )
 
     #######

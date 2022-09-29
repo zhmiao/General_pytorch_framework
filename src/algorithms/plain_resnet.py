@@ -9,13 +9,13 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
+from .utils import acc
+from src import models
 
-from .utils import register_algorithm, acc
-from src.models.utils import get_model
+__all__ = [
+    'PlainResNet'
+]
 
-
-
-@register_algorithm('PlainResNet')
 class PlainResNet(pl.LightningModule):
 
     """
@@ -28,8 +28,8 @@ class PlainResNet(pl.LightningModule):
         super().__init__()
         self.hparams.update(conf.__dict__)
         self.save_hyperparameters(ignore=['conf', 'train_class_counts'])
-        self.net = get_model(name=self.hparams.model_name, num_cls=self.hparams.num_classes,
-                             num_layers=self.hparams.num_layers)
+        self.net = models.__dict__[self.hparams.model_name](num_cls=self.hparams.num_classes, 
+                                                            num_layers=self.hparams.num_layers)
         self.train_class_counts = train_class_counts
 
     def configure_optimizers(self):

@@ -7,7 +7,10 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 import pytorch_lightning as pl
 
-from .utils import register_dataset_obj 
+
+__all__ = [
+    'BeeAnts'
+]
 
 
 mean = [0.485, 0.456, 0.406]
@@ -30,7 +33,7 @@ data_transforms = {
     ]),
 }
 
-class BeeAnts(Dataset):
+class BeeAnts_DS(Dataset):
 
     def __init__(self, rootdir, dset='train', transform=None):
         self.img_root = None
@@ -79,25 +82,24 @@ class BeeAnts(Dataset):
 
         return sample, label, file_dir
 
-@register_dataset_obj('BeeAnts')
-class BeeAnts_DM(pl.LightningDataModule):
+class BeeAnts(pl.LightningDataModule):
     def __init__(self, conf):
         self.conf = conf
         self.prepare_data_per_node = True 
         self._log_hyperparams = False
 
         print("Loading data...")
-        self.dset_tr = BeeAnts(rootdir=self.conf.dataset_root,
-                               dset='train',
-                               transform=data_transforms['train'])
+        self.dset_tr = BeeAnts_DS(rootdir=self.conf.dataset_root,
+                                  dset='train',
+                                  transform=data_transforms['train'])
 
-        self.dset_te = BeeAnts(rootdir=self.conf.dataset_root,
-                               dset='val',
-                               transform=data_transforms['val'] )
+        self.dset_te = BeeAnts_DS(rootdir=self.conf.dataset_root,
+                                  dset='val',
+                                  transform=data_transforms['val'] )
 
-        self.dset_te = BeeAnts(rootdir=self.conf.dataset_root,
-                               dset='val',
-                               transform=data_transforms['val'])
+        self.dset_te = BeeAnts_DS(rootdir=self.conf.dataset_root,
+                                  dset='val',
+                                  transform=data_transforms['val'])
 
         _, self.train_class_counts = self.dset_tr.class_counts_cal()
 

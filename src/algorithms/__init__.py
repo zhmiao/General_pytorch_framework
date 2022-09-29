@@ -1,2 +1,2 @@
 from . import utils
-from . import plain_resnet
+from .plain_resnet import *
